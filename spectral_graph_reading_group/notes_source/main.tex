@@ -1,0 +1,193 @@
+\documentclass[a4paper]{article}
+\usepackage{geometry}
+\geometry{left=2.5cm, right=2.5cm, top=2.0cm, bottom=2.0cm}
+\setlength{\parskip}{\baselineskip}%
+\setlength\parindent{0pt}
+\usepackage[utf8]{inputenc}
+
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{amsthm}
+
+\usepackage{mathtools}
+\DeclarePairedDelimiter\floor{\lfloor}{\rfloor}
+
+\theoremstyle{definition}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{remark}{Remark}[section]
+
+\usepackage{algorithm}
+\usepackage[noend]{algpseudocode}
+
+\usepackage{graphicx}
+
+\title{Notes on Spectral Graph Theory}
+\author{Mufei Li}
+\date{October 2019}
+
+\begin{document}
+
+\maketitle
+
+This notes is based on the reading group on spectral graph theory at AWS Shanghai AI Lab, Fall 2019. Our primary reference are~\cite{Luca_notes_2016} and~\cite{Spielman_notes_2018}, accompanied by~\cite{Luxburg07}. Some sections have not been covered directly in the reading group and I mark the titles of them with an $\ast$.
+
+\tableofcontents
+
+\section{Background}
+
+This section is mainly for a preparation and a refresh of the memory. You can skip it first and go back if necessary.
+
+\subsection{Linear Algebra}
+
+\begin{theorem}[Variational Characterization of Eigenvalues]
+\label{thm:var_char}
+Let $M\in\mathbb{R}^{n\times n}$ be a symmetric matrix, and $\lambda_1\leq \lambda_2\leq \cdots \leq \lambda_n$ be the eigenvalues of $M$. Then
+\begin{equation}
+    \lambda_k = \min_{k\text{-dim} V}\max_{\textbf{x}\in V\setminus\{\textbf{0}\}}\frac{\textbf{x}^T M\textbf{x}}{\textbf{x}^T\textbf{x}}
+\end{equation}
+The quantity $\frac{\textbf{x}^T M\textbf{x}}{\textbf{x}^T\textbf{x}}$ is called the \textit{Rayleigh quotient} of \textbf{x} with respect to $M$, and we will denote it by $R_M(\textbf{x)}$.
+\end{theorem}
+
+\begin{proof}
+By the spectral theorem, let $\textbf{v}_1, \cdots, \textbf{v}_n$ be eigenvectors of $M$ corresponding to eigenvalues $\lambda_1, \cdots, \lambda_n$ that form an orthonormal basis of $\mathbb{R}^n$. $\forall \textbf{x}\in \mathbb{R}^{n}\setminus\{\textbf{0}\}, \textbf{x}=\sum_{i=1}^{n}a_i\textbf{v}_i$, $\textbf{x}^{T}\textbf{x}=\sum_{i=1}^{n}a_i^2, \textbf{x}^{T}M\textbf{x}=\sum_{i=1}^{n}\lambda_i a_i^2$.
+
+Consider $V$ a space spanned by $\textbf{v}_1,\cdots, \textbf{v}_k$. It follows that $\textbf{x}^{T}M\textbf{x}\leq \lambda_k\sum_{i=1}^{n}a_i^2$ and $R_M(x)\leq \lambda_k$. In particular $\lambda_k$ is obtained when $\textbf{x}=a_k\textbf{v}_k$. Thus $\lambda_k \geq \min_{k\text{-dim} V}\max_{\textbf{x}\in V\setminus\{\textbf{0}\}}\frac{\textbf{x}^T M\textbf{x}}{\textbf{x}^T\textbf{x}}$.
+
+For the other direction, let $V$ be any $k$-dim space. Let $S$ be the span of $\textbf{v}_k,\cdots,\textbf{v}_{n}$. Then $\exists \textbf{x}\in V\cap S, \textbf{x}\neq \textbf{0}$. Since $\textbf{x}=\sum_{i=k}^{n}b_i\textbf{v}_i, R_M(\textbf{x})\geq \lambda_k$.
+\end{proof}
+
+\begin{remark}
+Several facts can be immediately obtained from Theorem~\ref{thm:var_char}:
+\begin{enumerate}
+    \item If $\lambda_1$ is the smallest eigenvalue of a real symmetric matrix $M$, then $\lambda_1=\min_{\textbf{x}\neq \textbf{0}}R_M(\textbf{x})$. Furthermore, every minimizer is an eigenvector of $\lambda_1$.
+    \item If $\lambda_n$ is the largest eigenvalue of a real symmetric matrix $M$, then $\lambda_n=\max_{\textbf{x}\neq \textbf{0}}R_{M}(\textbf{x})$. Furthermore, every maximizer is an eigenvector of $\lambda_n$.
+    \item If $\lambda_1$ is the smallest eigenvalue of a real symmetric matrix $M$, and $\textbf{x}_1$ is an eigenvector of $\lambda_1$, then $\lambda_2=\min_{\textbf{x}\neq \textbf{0}, \textbf{x}\perp\textbf{x}_1}R_M(\textbf{x})$. Furthermore, every minimizer is an eigenvector of $\lambda_2$.
+\end{enumerate}
+\end{remark}
+
+\section{Introduction}
+
+\subsection{Laplacian Matrices}
+
+A graph $G$ is specified by its vertex set $V$ and edge set $E$. Given an undirected graph $G=(V, E)$, the approach of spectral graph theory is to associate a symmetric real-valued matrix to $G$, and to relate the eigenvalues of the matrix to combinatorial properties of $G$.
+
+The most natural matrix associated to $G$ is the weighted adjacency matrix $A$ such that $A_{ij}=A_{ji}> 0$ if $(i, j)\in E$ and $A_{ij}=0$ otherwise. Note that unless otherwise specified, the edges are unique up to symmetry in $E$, i.e. $(i, j)$ and $(j, i)$ are considered to be the same edge in $E$. We define the \textbf{Laplacian matrix} of $G$ to be 
+\begin{equation}
+L=D-A,
+\end{equation}
+where the degree matrix $D$ is a diagonal matrix with $D_{ii}=A_i\textbf{1}$.
+
+The Laplacian matrix gives rise to a useful quadratic form associated with a graph:
+\begin{equation}
+    \textbf{x}^{T}L\textbf{x} = \sum_{(u, v)\in E}A_{uv}(x_u-x_v)^2.
+\end{equation}
+If we consider $\textbf{x}$ to be a function $\textbf{x}:V\rightarrow\mathbb{R}$, then this form measures the smoothness of the function and the evaluated result is small if $\textbf{x}$ does not change much over any edge (with large positive weights). From the perspective of graph cut, if $\textbf{x}\in\{0, 1\}^{V}$ is a Boolean vector representing a cut in the graph and $A_{ij}=A_{ji}=1, \forall (i, j)\in E$, then the evaluated result counts the number of edges that cross the cut. It's also quite often that we consider instead normalized Laplacian matrices $D^{-1}L$ or $D^{-\frac{1}{2}}LD^{-\frac{1}{2}}$.
+
+\begin{remark}[Properties of Laplacian Matrices]
+Laplacian matrices have several properties:
+\begin{enumerate}
+    \item They are positive semidefinite. It follows that their eigenvalues are non-negative.
+    \item They are additive. For a graph $G=(V, E)$, denote its Laplacian matrix by $L_G$. An edge $(i, j)$ with $i, j\in V$ can be viewed as a graph $\Delta G=(V, \{(i, j)\})$. Let $\tilde{G}$ be the graph obtained by adding the edge $(i, j)$ to $G$, we have $L_{\tilde{G}}=L_G+L_{\Delta G}$.
+    \item Their eigenvalues are invariant under graph isomorphism. If we permute the vertices then the eigenvectors are similarly permuted. Let $P$ be a permutation matrix, then
+    \begin{equation}
+        L\textbf{v} = \lambda \textbf{v} \text{ iff } (PLP^{T})(P\textbf{v}) = \lambda P\textbf{v}.
+    \end{equation}
+\end{enumerate}
+\end{remark}
+
+\begin{proof}
+\hfill
+\begin{enumerate}
+    \item That Laplacian matrices are positive semi-definite comes from the quadratic form we derived above. The existence of eigenvalues is justified by the real Spectral Theorem. Since the matrices are positive semi-definite, the eigenvalues are non-negative. 
+    \item This can be verified by applying the definition.
+    \item Note that $P^{T}P=I$.
+\end{enumerate}
+\end{proof}
+
+Below We prove several relations between the Laplacian matrices and certain purely combinatorial properties of the corresponding graphs. We will start with unnormalized Laplacian matrices and then extend the results to the normalized cases.
+
+\begin{theorem} Let $G=(V, E)$ be a weighted undirected graph and denote its unnormalized Laplacian matrix by $L$. Let $\lambda_1\leq \lambda_2\leq \cdots\leq \lambda_n$ be the real eigenvalues of $L$ with multiplicities in nondecreasing order. Then
+\begin{enumerate}
+    \item $\lambda_1=0$.
+    \item $\lambda_k=0$ iff $G$ has at least $k$ connected components.
+    \item Let $D$ denote the degree matrix of $G$ and let $D_{\max}=\max_{v\in V}D_{vv}$. Then $\lambda_n\leq 2D_{\max}$. In particular, the equality holds when all nodes have the same degree (i.e. the graph is a $D_{\max}$-regular graph) and at least one of the connected components of $G$ is bipartite.
+\end{enumerate}
+Note that the second result suggests that the multiplicity of $0$ as an eigenvalue is precisely the number of connected components of $G$.
+\end{theorem}
+
+\begin{proof}
+\hfill
+\begin{enumerate}
+    \item By the variational characterization of eigenvalues, we have
+    \begin{equation}\lambda_1=\min_{\textbf{x}\in\mathbb{R}^{n}\setminus\{\textbf{0}\}}R_L(\textbf{x})=\min_{\textbf{x}\in\mathbb{R}^{n}\setminus\{\textbf{0}\}}\frac{\sum_{(u, v)\in E}A_{uv}(x_u-x_v)^2}{\sum_{v\in V}x_v^2}\geq 0.\end{equation} If we take $\textbf{x}$ to be an all-one vector $\textbf{1}=(1,\cdots, 1)$, then $R_L(\textbf{x})=0$. Hence $\lambda_1=0$.
+
+    \item By the variational characterization of eigenvalues, we have
+    \begin{equation}\lambda_k=\min_{k-\text{dim}S}\max_{\textbf{x}\in S\setminus\{\textbf{0}\}}R_{L}(\textbf{x})\end{equation} If $\lambda_k=0$, then $\exists$ $S$ a $k$-dim subspace such that $\forall \textbf{x}\in S$, it is constant within each connected component. Therefore the graph has at least $k$ connected components.
+    
+    Conversely, assume $G$ has at least $k$ connected components. Let $\textbf{1}^{(i)}\in\mathbb{R}^{n}$ be a vector such that $\textbf{1}^{(i)}_v=1$ if $v$ belongs to the $i$-th connected component and $0$ otherwise. Consider $S$ to be the span of $\textbf{1}^{(1)}, \cdots, \textbf{1}^{(k)}$, then $R_{L}(\textbf{x})=0$ $\forall \textbf{x}\in S$. Hence $\lambda_k=0$.
+
+    \item \begin{align}\textbf{x}^{T}L\textbf{x}&=\sum_{(u, v)\in E}A_{uv}(x_u-x_v)^2=\sum_{v\in V}D_{vv}x_v^2 - 2\sum_{(u, v)\in E}A_{uv}x_u x_v\\
+    &= 2\sum_{v\in V}D_{vv}x_v^2 - (\sum_{v\in V}D_{vv}x_v^2 + 2\sum_{(u, v)\in E}A_{uv}x_u x_v)\\
+    &= 2\sum_{v\in V}D_{vv}x_v^2 - \sum_{(u, v)\in E}A_{uv}(x_u+x_v)^2\\
+    &\leq 2D_{\max}\sum_{v\in V}x_v^2 - \sum_{(u, v)\in E}A_{uv}(x_u+x_v)^2 \end{align}
+    By the variational characterization of eigenvalues, \ \begin{align}\lambda_n=\max_{\textbf{x}\in\mathbb{R}^{n}\setminus\{\textbf{0}\}}R_{L}(\textbf{x}) \leq \max_{\textbf{x}\in\mathbb{R}^{n}\setminus\{\textbf{0}\}} 2D_{\max} - \frac{\sum_{(u, v)\in E}A_{uv}(x_u+x_v)^2}{\sum_{v\in V}x_v^2}\leq 2D_{\max}. \end{align}
+    
+    The equality holds when $D_{vv}=D_{\max}, \forall v\in V$ and $\sum_{(u, v)\in E}A_{uv}(x_u+x_v)^2=0$. Since $\textbf{x}\neq \textbf{0}$, $\exists U=\{v | v\in V, x_v=c\}$ and $V=\{v | v\in V, x_v=-c\}$ for some $c\neq 0$ s.t. the nodes in $U$ are only connected to some nodes in $V$ and vice versa. In other words, they form a connected component that is bipartite.
+\end{enumerate}
+\end{proof}
+
+\begin{theorem}
+Let $G=(V, E)$ be a weighted undirected graph. Let $\hat{L}=D^{-1}L$ and $\tilde{L}=D^{-\frac{1}{2}}LD^{-\frac{1}{2}}$ be its two normalized Laplacian matrices. Then
+\begin{enumerate}
+    \item \begin{equation} \textbf{x}^{T}\tilde{L}\textbf{x} = \sum_{(u, v)\in E} A_{uv} \left(\frac{x_u}{\sqrt{D_{uu}}}-\frac{x_v}{\sqrt{D_{vv}}}\right)^2 \end{equation}
+    \item $\lambda$ is an eigenvalue of $\hat{L}$ with eigenvector $u$ iff $Lu=\lambda Du$.
+    \item $\lambda$ is an eigenvalue of $\hat{L}$ with eigenvector $u$ iff $\lambda$ is an eigenvalue of $\tilde{L}$ with eigenvector $w=D^{\frac{1}{2}}u$.
+    \item $0$ is an eigenvalue of $\hat{L}$ with eigenvector $\textbf{1}$ and an eigenvalue of $\tilde{L}$ with eigenvector $D^{\frac{1}{2}}\textbf{1}$.
+    \item $\hat{L}$ and $\tilde{L}$ are positive semi-definite and have $n$ non-negative real-valued eigenvalues $0=\lambda_1\leq \cdots\leq \lambda_n$.
+    \item The multiplicity of the eigenvalue $0$ of both $\hat{L}$ and $\tilde{L}$ equals the number of connected components in $G$.
+    \item $\lambda_n\leq 2$. In particular, the equality holds when at least one of the connected components of $G$ is bipartite.
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+\hfill
+\begin{enumerate}
+    \item \begin{align}\textbf{x}^{T}\tilde{L}\textbf{x}&=\textbf{x}^{T}(D^{-\frac{1}{2}}LD^{-\frac{1}{2}})\textbf{x}=\textbf{x}^{T}(D^{-\frac{1}{2}}(D-A)D^{-\frac{1}{2}})\textbf{x}=\textbf{x}^{T}\textbf{x}-\textbf{x}^{T}D^{-\frac{1}{2}}AD^{-\frac{1}{2}}\textbf{x}\\
+    &= \textbf{x}^{T}\textbf{x} - 2\sum_{(u, v)\in E}\frac{A_{uv}}{\sqrt{D_{uu}}\sqrt{D_{vv}}}x_u x_v\\
+    &= \sum_{(u, v)\in E}\frac{A_{uv}}{D_{uu}}x_u^2 + \frac{A_{uv}}{D_{vv}}x_v^2 - 2 \frac{A_{uv}}{\sqrt{D_{uu}}\sqrt{D_{vv}}}x_u x_v\\
+    &= \sum_{(u, v)\in E} A_{uv} \left(\frac{x_u}{\sqrt{D_{uu}}}-\frac{x_v}{\sqrt{D_{vv}}}\right)^2\end{align}
+    
+    \item The verification takes a direct computation.
+    
+    \item \begin{align}\hat{L}u=D^{-1}Lu=\lambda u\Longleftrightarrow D^{-1}LD^{-\frac{1}{2}}w=\lambda D^{-\frac{1}{2}}w\Longleftrightarrow\tilde{L}w=\lambda w\end{align}
+    
+    \item $\hat{L}\textbf{1}=D^{-1}L\textbf{1}=\textbf{1}-D^{-1}A\textbf{1}=0$. Hence $\textbf{1}$ is an eigenvector of $\hat{L}$ with eigenvalue $0$. Apply the previous result we have that $D^{\frac{1}{2}}\textbf{1}$ is an eigenvector of $\tilde{L}$ with eigenvalue $0$.
+    
+    \item That $\tilde{L}$ is positive semi-definite is from the first result. The existence of its $n$ eigenvalues is justified by the spectral theorem. Since it's positive semi-definite, all of its eigenvalues are non-negative. By the third result, the eigenvalues of $\hat{L}$ are also non-negative, hence $\hat{L}$ is positive semi-definite. 
+    
+    \item We only need to prove the case for $\tilde{L}$ and the case for $\hat{L}$ will follow from the third result.
+    
+    By the variational characterization of eigenvalues, we have \begin{equation}\lambda_k=\min_{k-\text{dim}S}\max_{\textbf{x}\in S\setminus\{\textbf{0}\}}R_{\tilde{L}}(\textbf{x})=\min_{k-\text{dim}S}\max_{\textbf{x}\in S\setminus\{\textbf{0}\}}\frac{\sum_{(u, v)\in E} A_{uv} \left(\frac{x_u}{\sqrt{D_{uu}}}-\frac{x_v}{\sqrt{D_{vv}}}\right)^2}{\sum_{v\in V}x_v^2}\end{equation}
+    
+    If $\lambda_k=0$, then $\exists$ $S$ a $k$-dim subspace such that $\forall \textbf{x}\in S$, $D^{-\frac{1}{2}}\textbf{x}$ is constant within each connected component. Therefore the graph has at least $k$ connected components. 
+    
+    Conversely, assume $G$ has at least $k$ connected components. Let $D^{\frac{1}{2}}\textbf{1}^{(i)}\in\mathbb{R}^{n}$ be a vector such that $(D^{\frac{1}{2}}\textbf{1}^{(i)})_v=\sqrt{D_{vv}}$ if $v$ belongs to the $i$-th connected component and $0$ otherwise. Consider $S$ to be the span of $D^{\frac{1}{2}}\textbf{1}^{(1)},\cdots, D^{\frac{1}{2}}\textbf{1}^{(k)}$, then $R_{\tilde{L}}(\textbf{x})=0$ $\forall \textbf{x}\in S$. Hence $\lambda_k=0$.
+    
+    It follows that $\lambda_k=0$ iff $G$ has at least $k$ connected components. Hence the multiplicity of the eigenvalue $0$ of $\tilde{L}$ equals the number of connected components in $G$.
+    
+    \item \begin{align}\textbf{x}^{T}\tilde{L}\textbf{x} &= \sum_{(u, v)\in E}A_{uv}\left(\frac{x_u}{\sqrt{D_{uu}}}-\frac{x_v}{\sqrt{D_{vv}}}\right)^2 = \sum_{v\in V}x_v^2-2\sum_{(u, v)\in E}\frac{A_{uv}}{\sqrt{D_{uu}}\sqrt{D_{vv}}}x_u x_v\\
+    &=2\sum_{v\in V}x_v^2-\left(\sum_{v\in V}x_v^2+2\sum_{(u, v)\in E}\frac{A_{uv}}{\sqrt{D_{uu}}\sqrt{D_{vv}}}x_u x_v\right)\\
+    &= 2\sum_{v\in V}x_v^2-\sum_{(u, v)\in E}A_{uv}\left(\frac{x_u}{\sqrt{D_{uu}}}+\frac{x_v}{\sqrt{D_{vv}}}\right)^2\end{align}
+    
+    By the variational characterization of eigenvalues, 
+    \begin{align}
+    \lambda_n = \max_{\textbf{x}\in\mathbb{R}^{n}\setminus\{\textbf{0}\}}R_{\tilde{L}}(\textbf{x}) \leq \max_{\textbf{x}\in\mathbb{R}^{n}\setminus\{\textbf{0}\}} 2 - \frac{\sum_{(u, v)\in E}A_{uv}\left(\frac{x_u}{\sqrt{D_{uu}}}+\frac{x_v}{\sqrt{D_{vv}}}\right)^2}{\sum_{v\in V}x_v^2}\leq 2
+    \end{align} The equality holds when $\sum_{(u, v)\in E}A_{uv}\left(\frac{x_u}{\sqrt{D_{uu}}}+\frac{x_v}{\sqrt{D_{vv}}}\right)^2=0$. Since $\textbf{x}\neq\textbf{0}$, $\exists U=\{v|v\in V, \frac{x_v}{\sqrt{D_{vv}}}=c\}$ and $V=\{v|v\in V, \frac{x_v}{\sqrt{D_{vv}}}=-c\}$ for some $c\neq 0$ s.t. the nodes in $U$ are only connected to some nodes in $V$, vice versa. In other words, they form a connected component that is bipartite.
+\end{enumerate}
+\end{proof}
+
+\bibliographystyle{unsrt}
+\bibliography{main}
+
+\end{document}

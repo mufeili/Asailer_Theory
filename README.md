@@ -1,2 +1,2 @@
 # Asailer_Theory
-Resources for the Asailer interested in theory
+Resources for the Asailers interested in theory
