@@ -16,6 +16,7 @@
 \theoremstyle{definition}
 \newtheorem{theorem}{Theorem}[section]
 \newtheorem{remark}{Remark}[section]
+\newtheorem{lemma}{Lemma}[section]
 
 \usepackage{algorithm}
 \usepackage[noend]{algpseudocode}
@@ -72,7 +73,7 @@ Several facts can be immediately obtained from Theorem~\ref{thm:var_char}:
 
 A graph $G$ is specified by its vertex set $V$ and edge set $E$. Given an undirected graph $G=(V, E)$, the approach of spectral graph theory is to associate a symmetric real-valued matrix to $G$, and to relate the eigenvalues of the matrix to combinatorial properties of $G$.
 
-The most natural matrix associated to $G$ is the weighted adjacency matrix $A$ such that $A_{ij}=A_{ji}> 0$ if $(i, j)\in E$ and $A_{ij}=0$ otherwise. Note that unless otherwise specified, the edges are unique up to symmetry in $E$, i.e. $(i, j)$ and $(j, i)$ are considered to be the same edge in $E$. We define the \textbf{Laplacian matrix} of $G$ to be 
+The most natural matrix associated to $G$ is the weighted adjacency matrix $A$ such that $A_{ij}=A_{ji}> 0$ if $(i, j)\in E$ and $A_{ij}=0$ otherwise. If $A_{ij}$'s are constant for $(i, j)\in E$, we consider the graphs to be unweighted. Otherwise, they are considered to be weighted. Note that unless otherwise specified, the edges are unique up to symmetry in $E$, i.e. $(i, j)$ and $(j, i)$ are considered to be the same edge in $E$. We define the \textbf{Laplacian matrix} of $G$ to be 
 \begin{equation}
 L=D-A,
 \end{equation}
@@ -185,6 +186,264 @@ Let $G=(V, E)$ be a weighted undirected graph. Let $\hat{L}=D^{-1}L$ and $\tilde
     \lambda_n = \max_{\textbf{x}\in\mathbb{R}^{n}\setminus\{\textbf{0}\}}R_{\tilde{L}}(\textbf{x}) \leq \max_{\textbf{x}\in\mathbb{R}^{n}\setminus\{\textbf{0}\}} 2 - \frac{\sum_{(u, v)\in E}A_{uv}\left(\frac{x_u}{\sqrt{D_{uu}}}+\frac{x_v}{\sqrt{D_{vv}}}\right)^2}{\sum_{v\in V}x_v^2}\leq 2
     \end{align} The equality holds when $\sum_{(u, v)\in E}A_{uv}\left(\frac{x_u}{\sqrt{D_{uu}}}+\frac{x_v}{\sqrt{D_{vv}}}\right)^2=0$. Since $\textbf{x}\neq\textbf{0}$, $\exists U=\{v|v\in V, \frac{x_v}{\sqrt{D_{vv}}}=c\}$ and $V=\{v|v\in V, \frac{x_v}{\sqrt{D_{vv}}}=-c\}$ for some $c\neq 0$ s.t. the nodes in $U$ are only connected to some nodes in $V$, vice versa. In other words, they form a connected component that is bipartite.
 \end{enumerate}
+\end{proof}
+
+\section{Fiedler Value, Edge Expansion, and Cheeger's Inequalities}
+
+\subsection{Motivation from Graph Cut}
+
+A graph cut is a partition of $V$ into two disjoint nonempty sets (clusters) $A$ and $B$. Intuitively, a good cut should minimize the connections between the sets and maximize the connections within each set. It then seems natural to measure the quality of a cluster by
+\begin{equation}
+    \sum_{u\in A}\sum_{v\in B}A_{uv}
+\end{equation}
+Unfortunately this metric fails to consider the connections within a set and can be minimized by some undesired trivial cuts, e.g. a cut such that one set has only one vertex.
+
+\subsection{Edge Expansion}
+
+To address the issue, we now consider a different metric.
+
+If $G=(V, E)$ is an undirected graph, and $\emptyset \subset S\subseteq V$ is a set of vertices, we call the quantity 
+
+\begin{equation}
+    \phi(S) := \frac{\sum_{u\in S}\sum_{v\in V\setminus S}A_{uv}}{\sum_{u\in S}\sum_{v\in V}A_{uv}} = \frac{\sum_{u\in S}\sum_{v\in V\setminus S}A_{uv}}{\sum_{u\in S}d_u}
+\end{equation}
+
+the \textbf{edge expansion} of $S$. The quantity $\phi(S)$ is the average fraction of connections pointing outside of $S$ for a random element of $S$.
+
+We define the expansion of a cut $(S, V\setminus S)$ as 
+
+\begin{equation}
+\phi(S, V\setminus S) := \max\{\phi(S), \phi(V\setminus S)\}=\frac{\sum_{u\in S}\sum_{v\in V\setminus S}A_{uv}}{\min\{\sum_{u\in S}d_{u}, \sum_{v\in V\setminus S}d_{v}\}}.\footnote{Here we are following the convention used in~\cite{Luca_notes_2016}. Note that it is common in the literature to use the notation $\phi(S)$ to refer to the quantity that we call $\phi(S, V\setminus S)$.}
+\end{equation}
+
+Note that it's also quite often to call $\phi(S, V\setminus S)$ as the \textbf{conductance} of $S$ or $V\setminus S$.
+
+The edge expansion/conductance of the graph $G$ is defined as
+
+\begin{equation}
+    \phi(G) := \min_{S}\phi(S, V\setminus S) = \min_{S:1\leq |S|\leq \floor*{\frac{|V|}{2}}}\phi(S)
+\end{equation}
+
+\subsection{The Fiedler Value}
+
+We've learned that the second smallest eigenvalue $\lambda_2$ of Laplacian matrices is $0$ iff the graph is disconnected. In fact, Miroslav Fiedler suggested considering $\lambda_2$ to be a measure of how well connected the graph is and called it the ``algebraic connectivity'' of a graph. We will follow the convention of~\cite{Spielman_notes_2018} and call this value the \textbf{Fiedler value}. Fiedler proved that the further $\lambda_2$ is from $0$, the better connected the graph is.
+
+Finding cuts of small expansion is a problem with several applications. Unfortunately, computing the optimal cut with respect to edge expansion is NP-hard and it is an open question if there is a polynomial-time approximation with a constant-factor approximation ratio.
+
+The following algorithm~\ref{alg:fiedler} was proposed by Fiedler, and it works well in practice when $\textbf{x}$ is the eigenvector corresponding to the Fiedler value.
+
+\begin{algorithm}
+\caption{Approximating the Optimal Graph Cut}
+\begin{algorithmic}[1]
+\Require{graph $G=(V, E)$, $\textbf{x}\in\mathbb{R}^{|V|}$}
+
+\State Sort the vertices according to $\textbf{x}$ and relabel them in order as $v_1,\cdots, v_n$.
+\State $k^{\ast}=\arg\min_{k}\phi(\{v_1,\cdots, v_k\},\{v_{k+1},\cdots, v_n\})$
+\State Return $(\{v_1,\cdots, v_k^{\ast}\},\{v_{k^{\ast}+1},\cdots, v_n\})$
+\end{algorithmic}
+\label{alg:fiedler}
+\end{algorithm}
+
+The algorithm can be implemented in $O(|E|+|V|\log |V|)$. First we can sort the vertices in $O(|V|\log |V|)$. The cut of minimal expansion that respects the sorted order can be found in time $O(E)$. In order to find the cut, we only need to compute $e_k=E(\{v_1,\cdots, v_k\},\{v_{k+1},\cdots, v_n\})$ for $k=1,\cdots, n-1$. When $k=1$, this is just the degree of $v_1$ excluding its self loops. From $k$ to $k+1$, we have $e_{k+1}=e_{k}-E(\{v_{k+1}\},\{v_1,\cdots, v_k\}) + E(\{v_{k+1}\},\{v_{k+2},\cdots, v_{n}\})$. On operation, that can be done in time $O(D_{k+1,k+1})$. Thus the total running time is of order of $\sum_{v\in V}D_{vv}$, i.e. $O(|E|)$.
+
+\subsection{Cheeger's Inequalities}
+
+Cheeger's inequality gives a tight connection between edge expansion and the Fiedler value. 
+
+\begin{theorem}[Cheeger’s Inequalities] Let $G$ be an undirected regular graph and $\lambda_1\leq \lambda_2\leq\cdots\leq\lambda_n$ be the eigenvalues of the normalized Laplacian $\tilde{L}=D^{-\frac{1}{2}}LD^{-\frac{1}{2}}$. Then
+
+\begin{equation}
+    \frac{\lambda_2}{2}\leq \phi(G)\leq \sqrt{2\lambda_2}
+\end{equation}
+
+% Furthermore, if $(S, V\setminus S)$ is the cut found by Fiedler's algorithm given the eigenvector of $\lambda_2$, then
+% 
+% \begin{equation}
+%    \phi(S, V\setminus S)\leq \sqrt{2\lambda_2}
+% \end{equation}
+% and
+% \begin{equation}
+%     \phi(S, V\setminus S)\leq 2\sqrt{\phi(G)}.
+% \end{equation}
+%
+% The latter one gives a worst-case guarantee of the quality of the solution found by the algorithm.
+
+\end{theorem}
+
+We will start with the case of $d$-regular unweighted graphs and later extend the result to irregular graphs.
+
+\subsubsection{The Case of $d$-regular Unweighted Graphs}
+
+\textbf{Proof that $\frac{\lambda_2}{2}\leq \phi(G)$}
+
+Let $S$ be a set of vertices such that $\phi(S, V\setminus S)=\phi(G)$. Note that $\forall S\subset V$, we have
+\begin{equation}
+    \phi(S)=\frac{E(S, V\setminus S)}{d|S|} = \frac{\sum_{u\in S}\sum_{v\in V\setminus S}(1-0)^2}{d|S|} = R_{\tilde{L}}(\textbf{1}_{S}).
+\end{equation}
+It follows that
+\begin{align}
+    R_{\tilde{L}}(\textbf{1}_{S}) &\leq \phi(G)\\
+    R_{\tilde{L}}(\textbf{1}_{V\setminus S}) &\leq \phi(G)
+\end{align}
+From the variational characterizattion of eigenvalues, we have that
+\begin{equation}
+    \lambda_2=\min_{2-\text{dim} X}\max_{\textbf{x}\in X\setminus\{0\}}R_{\tilde{L}}(\textbf{x})
+\end{equation}
+We will prove the inequality by showing that all the vectors in the $2$-dimensional space $X$ of linear combinations of the orthogonal vectors $\textbf{1}_{S}$, $\textbf{1}_{V\setminus S}$ have Rayleigh quotient at most $2\phi(G)$. This is a consequence of the following Lemma.
+
+\begin{lemma}
+Let $\textbf{x}$ and $\textbf{y}$ be two orthogonal vectors, and let $M$ be a positive semi-definite matrix. Then 
+
+\begin{equation}
+    R_{M}(\textbf{x}+\textbf{y}) \leq 2\max\{R_{M}(\textbf{x}), R_{M}(\textbf{y})\}
+\end{equation}
+\end{lemma}
+
+\begin{proof}
+By the spectral theorem, $M$ has $n$ eigenvalues corresponding to $n$ eigenvectors that form an orthonormal basis. Since $M$ is positive semi-definite, the eigenvalues are non-negative. For convenience, we order them as $0\leq \lambda_1\leq \cdots \leq \lambda_n$, corresponding to eigenvectors $\textbf{v}_1,\cdots, \textbf{v}_n$. Let $\textbf{x}=\sum_{i=1}^{n}a_i\textbf{v}_i$, $\textbf{y}=\sum_{i=1}^{n}b_i\textbf{v}_i$.
+
+\begin{align}
+    R_{M}(\textbf{x} + \textbf{y}) &= \frac{\sum_{i}\lambda_i(a_i+b_i)^2}{||x+y||^2} = \frac{\sum_{i}\lambda_i(a_i+b_i)^2}{||x||^2+||y||^2} \leq \frac{\sum_{i}2\lambda_i(a_i^2+b_i^2)}{||x||^2+||y||^2} (\textbf{Cauchy-Schwarz inequality})\\
+    &= \frac{2R_{M}(\textbf{x})\cdot ||\textbf{x}||^2 + 2R_{M}(\textbf{y})\cdot ||\textbf{y}||^2}{||\textbf{x}||^2+||\textbf{y}||^2} \leq 2\max\{R_{M}(\textbf{x}), R_{M}(\textbf{y})\}
+\end{align}
+\end{proof}
+
+\textbf{Proof that $\phi(G)\leq \sqrt{2\lambda_2}$}
+
+Below we will prove a stronger result.
+
+\begin{lemma}
+Let $\textbf{x}$ be a vector orthogonal to $\textbf{1}$ and let $(S, V\setminus S)$ be the cut found by Fiedler's algorithm given $\textbf{x}$. Then
+
+\begin{equation}
+    \phi(S, V\setminus S)\leq \sqrt{2R_{\tilde{L}}(\textbf{x})}
+\end{equation}
+\end{lemma}
+
+Assume this lemma holds, then with $\textbf{x}=\textbf{v}_2$ being the eigenvector of $\tilde{L}$ corresponding to $\lambda_2$, we have 
+
+\begin{equation}
+    \phi(G)\leq \phi(S, V\setminus S)\leq \sqrt{2R_{\tilde{L}}(\textbf{v}_2)}=\sqrt{2\lambda_2}.
+\end{equation}
+
+In practice, often we use the Fiedler's algorithm with an approximate eigenvector $\textbf{x}$. This result is useful for giving a guarantee on the quality of the solution found by the Fiedler's algorithm.
+
+We will prove the lemma in two steps:
+\begin{enumerate}
+    \item We show that studying non-negative vectors with at most $\frac{|V|}{2}$ entries implies the cases of vectors orthogonal to $\textbf{1}$. Recall that $\textbf{1}$ is an eigenvector of $\tilde{L}$ corresponding to $\lambda_1$ and $\textbf{v}_2\perp\textbf{1}$.
+    \item We study the cases of non-negative vectors with at most $\frac{|V|}{2}$ entries.
+\end{enumerate}
+
+Formally, these two steps correspond to the two lemmas below.
+
+\begin{lemma}
+\label{lemma:relation_to_nonnegative}
+Let $\textbf{x}\in\mathbb{R}^{|V|}$ be orthogonal to $\textbf{1}$. Then $\exists$ a vector $\textbf{y}\in\mathbb{R}_{\geq 0}^{|V|}$ with at most $\frac{|V|}{2}$ non-zero entries such that
+
+\begin{equation}
+    R_{\tilde{L}}(\textbf{y}) \leq R_{\tilde{L}}(\textbf{x})
+\end{equation}
+
+Furthermore, $\forall t\in (0, \max_v y_v)$, the cut $(\{v:y_v\geq t\}, \{v:y_v<t\})$ has been considered by Fiedler's algorithm on $\textbf{x}$.
+\end{lemma}
+
+\begin{lemma}
+\label{lemma:study_nonnegative}
+Let $\textbf{y}\in\mathbb{R}_{\geq 0}^{|V|}$ be a vector with non-negative entries. Then $\exists$ a $t\in(0, \max_{v}y_v]$ such that
+
+\begin{equation}
+    \phi(\{v:y_v\geq t\}) \leq \sqrt{2R_{\tilde{L}}(\textbf{y})}
+\end{equation}
+\end{lemma}
+
+\begin{proof}[Proof of Lemma~\ref{lemma:relation_to_nonnegative}]
+\hfill
+
+We observe that $\forall c\in\mathbb{R}$,
+\begin{equation}
+    R_{\tilde{L}}(\textbf{x}+c\textbf{1}) = \frac{\sum_{(u, v)\in E}(x_u-x_v)^2}{d||\textbf{x} + c\textbf{1}||^2} = \frac{\sum_{(u, v)\in E}(x_u-x_v)^2}{d(||\textbf{x}||^2+||c\textbf{1}||^2)} \leq \frac{\sum_{(u, v)\in E}(x_u-x_v)^2}{d||\textbf{x}||^2} = R_{\tilde{L}}(\textbf{x}).
+\end{equation}
+Let $m$ be the median value of the entries of $\textbf{x}$, call $\textbf{x}':=\textbf{x}-m\textbf{1}$. Then we have $R_{\tilde{L}}(\textbf{x}')\leq R_{\tilde{L}}(\textbf{x})$. Also the median of the entries of $\textbf{x}'$ is zero, meaning that $\textbf{x}'$ has at most $\frac{|V|}{2}$ positive entries and at most $\frac{|V|}{2}$ negative entries. We will refer to the vertices $v$ such that $x'_{v} > 0$ as the positive vertices and those with $x'_{v} < 0$ as the negative vertices.
+
+We write $\textbf{x}'=\textbf{x}^{+} - \textbf{x}^{-}$, where $\textbf{x}^{+}_{v}=x'_v\textbf{1}[x'_v >0]$ and $\textbf{x}^{-}_{v}=-x'_{v}\textbf{1}[x'_v <0]$. Then $\textbf{x}^{+}$ and $\textbf{x}^{-}$ are orthogonal, non-negative and each of them has at most $\frac{|V|}{2}$ nonzero entries. Note that $\forall t$, the cut defined by the set $\{v:x_v^{+}\geq t\}$ is one of the cuts considered by the Fiedler's algorithm on $\textbf{x}$, because it is the cut $(\{v:x_v<t+m\}, \{v:x_v\geq t+m\})$. The case for $\textbf{x}^{-}$ is similar.
+
+It remains to show that
+
+\begin{equation}
+    \min\{R_{\tilde{L}}(\textbf{x}^{+}), R_{\tilde{L}}(\textbf{x}^{-})\}\leq R_{\tilde{L}}(\textbf{x}') \leq R_{\tilde{L}}(\textbf{x})
+\end{equation}
+
+We claim that
+
+\begin{align}
+    R_{\tilde{L}}(\textbf{x}') &= \frac{\sum_{(u, v)\in E}(x_u-x_v)^2}{d||\textbf{x}'||^2} = \frac{\sum_{(u, v)\in E}((x_u^{+}-x_v^{+})-(x_u^{-}-x_v^{-}))^2}{d(||\textbf{x}^{+}||^2+||\textbf{x}^{-}||^2)}\\
+    &\geq \frac{\sum_{(u, v)\in E}(x_u^{+}-x_v^{+})^2+(x_u^{-}-x_v^{-})^2}{d(||\textbf{x}^{+}||^2+||\textbf{x}^{-}||^2)}\\
+    &= \frac{R_{\tilde{L}}(\textbf{x}^{+})\cdot ||\textbf{x}^{+}||^2 + R_{\tilde{L}}(\textbf{x}^{-})\cdot ||\textbf{x}^{-}||^2 }{d(||\textbf{x}^{+}||^2+||\textbf{x}^{-}||^2)}\\
+    &\geq \min\{R_{\tilde{L}}(\textbf{x}^{+}), R_{\tilde{L}}(\textbf{x}^{-})\}
+\end{align}
+
+The only step that we need to justify is that for every edge $(u, v)$ we have 
+
+\begin{equation}
+((x_u^{+}-x_v^{+})-(x_u^{-}-x_v^{-}))^2 \geq (x_u^{+}-x_v^{+})^2+(x_u^{-}-x_v^{-})^2
+\end{equation}
+
+This clearly holds when both vertices are positive or negative. Without loss of generality, assume $u$ is positive and $v$ is negative, then 
+
+\begin{align}
+    ((x_u^{+}-x_v^{+})-(x_u^{-}-x_v^{-}))^2 &= (x_u^{+} + x_v^{+})^2 \geq (x_u^{+})^2 + (x_v^{+})^2 = (x_u^{+}-x_v^{+})^2+(x_u^{-}-x_v^{-})^2.
+\end{align}
+
+\end{proof}
+
+Finally, we will provide a probabilistic proof for Lemma~\ref{lemma:study_nonnegative}.
+
+\begin{proof}[Proof of Lemma~\ref{lemma:study_nonnegative}]
+\hfill
+
+Since multiplication by a scalar does not affect the Rayleigh quotient of a vector, without loss of generality, we may assume that $\max_v y_v=1$. 
+
+We consider the probabilistic process in which we pick $t > 0$ in such a way that $t^2\sim Unif((0, 1])$ and then define the non-empty set $S_{t}:=\{v: y_v \geq t\}$.
+
+We will prove that
+
+\begin{equation}
+    \label{equ:ratio_expectation}
+    \frac{\mathbb{E}[E(S_t, V\setminus S_t)]}{\mathbb{E}[d|S_t|]}\leq \sqrt{2R_{\tilde{L}}(\textbf{y})}.
+\end{equation}
+\hfill
+
+\begin{remark} 
+\label{rem:probability}
+Let $X$ and $Y$ be random variables such that $\mathbb{P}[Y > 0] = 1$. Then 
+\begin{equation}
+    \mathbb{P}\left[\frac{X}{Y}\leq \frac{\mathbb{E}[X]}{\mathbb{E}[Y]}\right] > 0
+\end{equation}
+Let $r:=\frac{\mathbb{E}[X]}{\mathbb{E}[Y]}$, then by linearity $\mathbb{E}[X-rY]=0$. It follows that $\mathbb{P}[X-rY\leq 0] > 0$. Since $Y > 0$ with probability $1$, $\mathbb{P}\left[\frac{X}{Y}\leq \frac{\mathbb{E}[X]}{\mathbb{E}[Y]}\right] > 0$.
+\end{remark}
+
+With the Remark~\ref{rem:probability}, if equation~\ref{equ:ratio_expectation} holds, then the Lemma~\ref{lemma:study_nonnegative} will be true. We will now prove equation~\ref{equ:ratio_expectation}.
+
+The denominator and the numerator of the equation~\ref{equ:ratio_expectation} can be transformed as follows:
+
+\begin{align}
+    \mathbb{E}[d|S_t|] &= d\sum_{v\in V}\mathbb{P}[v\in S_t] = d\sum_{v\in V}\mathbb{P}[y_v\geq t] = d\sum_{v\in V}\mathbb{P}[y_v^2\geq t^2] = d\sum_{v\in V}y_v^2
+\end{align}
+\begin{align}
+    \mathbb{E}[E(S_t, V\setminus S_t)] &= \sum_{(u, v)\in E}\mathbb{P}[(u,v)\text{ is cut}] = \sum_{(u, v)\in E}|y_v^2-y_u^2| = \sum_{(u, v)\in E}|y_v-y_u|\cdot (y_v+y_u)
+\end{align}
+
+Applying Cauchy-Schwarz for twice:
+\begin{align}
+    \sum_{(u, v)\in E}|y_v-y_u|\cdot (y_v+y_u) &\leq \sqrt{\sum_{(u, v)\in E}(y_v-y_u)^2}\cdot \sqrt{\sum_{(u, v)\in E}(y_v+y_u)^2}\\
+    &\leq \sqrt{\sum_{(u, v)\in E}(y_v-y_u)^2}\cdot\sqrt{\sum_{(u, v)\in E}2y_v^2+2y_u^2}\\
+    &= \sqrt{\sum_{(u, v)\in E}(y_v-y_u)^2}\cdot\sqrt{2d\sum_{v\in V}y_v^2}
+\end{align}
+Putting everyting together:
+\begin{align}
+\frac{\mathbb{E}[E(S_t, V\setminus S_t)]}{\mathbb{E}[d|S_t|]} &\leq \sqrt{2\frac{\sum_{(u, v)\in E}(y_v-y_u)^2}{d\sum_{v\in V}y_v^2}}=\sqrt{2R_{\tilde{L}}(\textbf{y})}.
+\end{align}
+
 \end{proof}
 
 \bibliographystyle{unsrt}

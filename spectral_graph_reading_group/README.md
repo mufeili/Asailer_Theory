@@ -11,5 +11,5 @@ Our references are primarily:
 
 - **spectral_reading_group_notes.pdf**: Brief notes for the reading group. You can find the latex files in the folder **notes_source**
 - Jupyter notebooks for computational examples:
-  - **2-Introduction.ipynb** contains some example python code for computationally understanding Laplacian matrices. The code was based on the Julia code by Spielman.
-
+  - **2-Introduction.ipynb**: Laplacian matrices, based on the Julia code by Spielman.
+  - **3-edge_expansion_Fiedler_Cheeger.ipynb**: Fiedler's value, edge expansion, Fiedler's algorithm
