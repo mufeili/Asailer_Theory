@@ -3,7 +3,7 @@
 Our references are primarily:
 
 - [Lecture Notes on Graph Partitioning, Expanders and Spectral Methods](https://people.eecs.berkeley.edu/~luca/books/expanders-2016.pdf), by  Luca Trevisan
-- [CPSC 662 / AMTH 561: Spectral Graph Theory](http://www.cs.yale.edu/homes/spielman/561/561schedule.html) by Daniel A. Spielman
+- [CPSC 662 / AMTH 561: Spectral Graph Theory](http://www.cs.yale.edu/homes/spielman/561/561schedule.html), by Daniel A. Spielman
 
 
 
